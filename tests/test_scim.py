@@ -60,3 +60,23 @@ def test_delete_user_returns_no_content_when_user_deleted_successfully(client):
     response = client.post('/scim/v2/users', data=json.dumps(d), content_type='application/json')
     response = client.delete('/scim/v2/users/' + str(response.json['id']))
     assert response.status_code == 204
+
+
+def test_get_user_returns_not_found_when_user_does_not_exist(client):
+    """
+        Check that GET /Users/<id> responds with 404 Not Found when user does not exist
+    """
+    response = client.get('/scim/v2/users/100')
+    assert response.status_code == 404
+
+
+def test_get_user_returns_ok_when_user_returned(client):
+    """
+        Check that GET /Users/<id> responds with 200 OK when user is returned
+    """
+    d = {'userName': 'username'}
+    response = client.post('/scim/v2/users', data=json.dumps(d), content_type='application/json')
+    response = client.get('/scim/v2/users/' + str(response.json['id']))
+    assert response.status_code == 200
+    assert "urn:ietf:params:scim:schemas:core:2.0:User" in response.json["schemas"]
+    assert response.json["userName"] == d['userName']

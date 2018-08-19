@@ -63,6 +63,16 @@ def delete_user(user_id):
     return make_scim_response({}, 204)
 
 
+@app.route('/scim/v2/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+
+    user = [user for user in users if user['id'] == user_id]
+    if len(user) == 0:
+        scim_abort(404, 'user does not exist')
+
+    return make_scim_response(user[0], 200)
+
+
 def make_scim_response(data, code):
     resp = make_response(jsonify(data))
     resp.headers['Content-Type'] = 'application/scim+json'
