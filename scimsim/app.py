@@ -1,7 +1,6 @@
 #!/usr/local/bin/python3
 from flask import Flask, request, abort, jsonify, make_response, Response
 
-
 app = Flask(__name__)
 
 users = []
@@ -50,6 +49,18 @@ def create_user():
     users.append(user)
 
     return make_scim_response(user, 201)
+
+
+@app.route('/scim/v2/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+
+    user = [user for user in users if user['id'] == user_id]
+    if len(user) == 0:
+        scim_abort(404, 'user does not exist')
+
+    users.remove(user[0])
+
+    return make_scim_response({}, 204)
 
 
 def make_scim_response(data, code):
