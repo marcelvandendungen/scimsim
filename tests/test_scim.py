@@ -80,3 +80,13 @@ def test_get_user_returns_ok_when_user_returned(client):
     assert response.status_code == 200
     assert "urn:ietf:params:scim:schemas:core:2.0:User" in response.json["schemas"]
     assert response.json["userName"] == d['userName']
+
+
+def test_not_found_response_in_json(client):
+    """
+    """
+    response = client.get('/')
+    assert response.status_code == 404
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "Not found"
+

@@ -21,6 +21,11 @@ def after(response):
     return response
 
 
+@app.errorhandler(404)
+def not_found(error):
+    return make_scim_response(create_error_payload(404, 'Not found'), 404)
+
+
 @app.route('/scim/v2/users', methods=['POST'])
 def create_user():
     if not request.json or not 'userName' in request.json:
@@ -80,16 +85,20 @@ def make_scim_response(data, code):
 
 
 def scim_abort(status, detail, scim_type=None):
+
+    abort(make_response(jsonify(create_error_payload(status, detail, scim_type)), status))
+
+
+def create_error_payload(status, detail, scim_type=None):
     data = {
         'schemas': ['urn:ietf:params:scim:api:messages:2.0:Error'],
-        'status': status,
+        'status': str(status),
         'detail': detail
     }
     if scim_type:
         data['scimType'] = scim_type
 
-    abort(make_response(jsonify(data), status))
-
+    return data
 
 if __name__ == '__main__':
     app.run(debug=True)
