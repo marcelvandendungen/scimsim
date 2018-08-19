@@ -1,8 +1,10 @@
 #!/usr/local/bin/python3
-from flask import Flask, request
+from flask import Flask, request, abort, jsonify, make_response, Response
 
 
 app = Flask(__name__)
+
+users = []
 
 @app.before_request
 def log_request_info():
@@ -20,9 +22,52 @@ def after(response):
     return response
 
 
-@app.route('/', methods=['GET'])
-def get_hello():
-    return 'hello'
+@app.route('/scim/v2/users', methods=['POST'])
+def create_user():
+    if not request.json or not 'userName' in request.json:
+        scim_abort(400, 'userName is missing')
+
+    alreadyExists = next((u for u in users if u['userName'] == request.json['userName']), None)
+    if alreadyExists:
+        scim_abort(409, 'user already exists')
+
+    id = users[-1]['id'] + 1 if len(users) > 0 else 0
+    user = {
+        'schemas' : ['urn:ietf:params:scim:schemas:core:2.0:User'],
+        'id': id,
+        'userName': request.json['userName'],
+        'externalId': request.json.get('externalId', ""),
+        'active': True,
+        'metadata': {
+            'resourceType': 'User'
+            # TODO: add other attributes
+        }
+    }
+
+    if 'name' in request.json:
+        user['name'] = request.json['name']
+        
+    users.append(user)
+
+    return make_scim_response(user, 201)
+
+
+def make_scim_response(data, code):
+    resp = make_response(jsonify(data))
+    resp.headers['Content-Type'] = 'application/scim+json'
+    return resp, code
+
+
+def scim_abort(status, detail, scim_type=None):
+    data = {
+        'schemas': ['urn:ietf:params:scim:api:messages:2.0:Error'],
+        'status': status,
+        'detail': detail
+    }
+    if scim_type:
+        data['scimType'] = scim_type
+
+    abort(make_response(jsonify(data), status))
 
 
 if __name__ == '__main__':
