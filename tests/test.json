@@ -1,0 +1,58 @@
+{
+    "Resources": [
+        {
+            "active": true,
+            "externalId": "",
+            "id": 0,
+            "metadata": {
+                "resourceType": "User"
+            },
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:User"
+            ],
+            "userName": "username1"
+        },
+        {
+            "active": true,
+            "externalId": "",
+            "id": 1,
+            "metadata": {
+                "resourceType": "User"
+            },
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:User"
+            ],
+            "userName": "username2"
+        },
+        {
+            "active": true,
+            "externalId": "",
+            "id": 2,
+            "metadata": {
+                "resourceType": "User"
+            },
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:User"
+            ],
+            "userName": "username3"
+        },
+        {
+            "active": true,
+            "externalId": "",
+            "id": 3,
+            "metadata": {
+                "resourceType": "User"
+            },
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:User"
+            ],
+            "userName": "username4"
+        }
+    ],
+    "itemsPerPage": 10,
+    "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+    ],
+    "startIndex": 0,
+    "totalResults": 4
+}

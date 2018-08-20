@@ -8,6 +8,16 @@ def client():
     return scimsim.create_client()
 
 
+def test_not_found_response_in_json(client):
+    """
+        Check that any get of non-existing resources responds with proper SCIM error
+    """
+    response = client.get('/')
+    assert response.status_code == 404
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "Not found"
+
+
 def test_create_user_returns_created(client):
     """
         Check that POST /Users responds with 201 Created when successfully creating the user
@@ -82,11 +92,45 @@ def test_get_user_returns_ok_when_user_returned(client):
     assert response.json["userName"] == d['userName']
 
 
-def test_not_found_response_in_json(client):
+def test_list_users_returns_ok(client):
     """
+        Check that GET /Users responds with 200 OK
     """
-    response = client.get('/')
-    assert response.status_code == 404
-    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
-    assert response.json["detail"] == "Not found"
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username1'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username2'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username3'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username4'}), content_type='application/json')
 
+    response = client.get('/scim/v2/users')
+    assert response.status_code == 200
+    assert "urn:ietf:params:scim:api:messages:2.0:ListResponse" in response.json["schemas"]
+
+
+def test_list_users_with_username_filter(client):
+    """
+        Check that GET /Users?filter=userName eq "username2" responds with 200 OK
+    """
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username1'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username2'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username3'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username4'}), content_type='application/json')
+
+    response = client.get('/scim/v2/users?filter=userName eq "username2"')
+    assert response.status_code == 200
+    assert len(response.json['Resources']) == 1
+    assert "urn:ietf:params:scim:api:messages:2.0:ListResponse" in response.json["schemas"]
+
+
+def test_list_users_with_pagination(client):
+    """
+        Check that GET /Users?startIndex=1&count=2 responds with correct list
+    """
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username1'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username2'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username3'}), content_type='application/json')
+    response = client.post('/scim/v2/users', data=json.dumps({'userName': 'username4'}), content_type='application/json')
+
+    response = client.get('/scim/v2/users?startIndex=1&count=2')
+    assert response.status_code == 200
+    assert len(response.json['Resources']) == 2
+    assert "urn:ietf:params:scim:api:messages:2.0:ListResponse" in response.json["schemas"]
