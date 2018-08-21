@@ -166,3 +166,38 @@ def test_update_user_returns_not_found_when_user_does_not_exist(client):
     assert response.status_code == 404
     assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
     assert response.json["detail"] == "user does not exist"
+
+
+def test_create_group_returns_created(client):
+    """
+        Check that POST /Groups responds with 201 Created when successfully creating the user
+    """
+    d = {'displayName': 'groupname'}
+    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    assert response.status_code == 201
+    assert "urn:ietf:params:scim:schemas:core:2.0:Group" in response.json["schemas"]
+    assert response.json["displayName"] == d['displayName']
+
+
+def test_create_group_returns_bad_request_when_data_missing(client):
+    """
+        Check that POST /Groups responds with 400 Bad Request when data is missing from payload
+    """
+    response = client.post('/scim/v2/groups')
+    assert response.status_code == 400
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "displayName is missing"
+
+
+def test_create_group_returns_conflict_when_group_already_exists(client):
+    """
+        Check that POST /Groups responds with 409 Conflict when group to be created already exists
+    """
+    d = {'displayName': 'groupname'}
+    client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    assert response.status_code == 409
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "group already exists"
+
+

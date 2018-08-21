@@ -8,6 +8,7 @@ from flask import Flask, request, abort, jsonify, make_response, Response
 app = Flask(__name__)
 
 users = []
+groups = []
 
 @app.before_request
 def log_request_info():
@@ -122,6 +123,33 @@ def update_user(user_id):
     user[0]['meta']['modified'] = get_current_datetime()
 
     return make_scim_response(user[0], 200)
+
+
+@app.route('/scim/v2/groups', methods=['POST'])
+def create_group():
+    id = groups[-1]['id'] + 1 if len(groups) > 0 else 0
+    if not request.json or not 'displayName' in request.json:
+        scim_abort(400, 'displayName is missing')
+
+    alreadyExists = next((g for g in groups if g['displayName'] == request.json['displayName']), None)
+    if alreadyExists:
+        scim_abort(409, 'group already exists')
+
+    now = get_current_datetime()
+    group = {
+        'id': id,
+        'displayName': request.json['displayName'],
+        'schemas': ['urn:ietf:params:scim:schemas:core:2.0:Group'],
+        'externalId': request.json.get('externalId', ""),
+        'metadata': {
+            'resourceType': 'Group'
+            # TODO: add other attributes
+        },
+        'members': [],
+        'version': get_version(now, now)
+    }
+    groups.append(group)
+    return jsonify(group), 201
 
 
 def make_scim_response(data, code):
