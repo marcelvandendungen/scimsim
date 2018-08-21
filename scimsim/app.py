@@ -152,6 +152,18 @@ def create_group():
     return jsonify(group), 201
 
 
+@app.route('/scim/v2/groups/<int:group_id>', methods=['DELETE'])
+def delete_group(group_id):
+
+    group = [group for group in groups if group['id'] == group_id]
+    if len(group) == 0:
+        scim_abort(404, 'group not found')
+
+    groups.remove(group[0])
+
+    return make_scim_response({}, 204)
+
+
 def make_scim_response(data, code):
     resp = make_response(jsonify(data))
     resp.headers['Content-Type'] = 'application/scim+json'

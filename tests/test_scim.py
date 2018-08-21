@@ -201,3 +201,23 @@ def test_create_group_returns_conflict_when_group_already_exists(client):
     assert response.json["detail"] == "group already exists"
 
 
+def test_delete_group_returns_not_found_if_group_does_not_exist(client):
+    """
+        Check that DELETE /Groups/<id> responds with 404 Not Found when user does not exist
+    """
+    response = client.delete('/scim/v2/groups/100')
+    assert response.status_code == 404
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "group not found"
+
+
+def test_delete_group_returns_no_content_when_group_deleted_successfully(client):
+    """
+        Check that DELETE /Groups/<id> responds with 204 No Content when group was deleted
+    """
+    d = {'displayName': 'groupname'}
+    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = client.delete('/scim/v2/groups/' + str(response.json['id']))
+    assert response.status_code == 204
+
+
