@@ -1,5 +1,5 @@
 #!/usr/local/bin/python3
-import datetime
+import datetime 
 import hashlib
 import re
 import urllib.parse
@@ -106,6 +106,22 @@ def list_users():
     }
 
     return make_scim_response(response, 200)
+
+
+@app.route('/scim/v2/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    user = [user for user in users if user['id'] == user_id]
+
+    if len(user) == 0:
+        scim_abort(404, 'user does not exist')
+    if not request.json or not 'userName' in request.json:
+        scim_abort(400, 'userName is missing')
+
+    user[0]['userName'] = request.json.get('userName', user[0]['userName'])
+    user[0]['active'] = request.json.get('active', user[0]['active'])
+    user[0]['meta']['modified'] = get_current_datetime()
+
+    return make_scim_response(user[0], 200)
 
 
 def make_scim_response(data, code):

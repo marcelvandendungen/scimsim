@@ -1,3 +1,4 @@
+from dateutil.parser import parse
 import json
 import pytest
 import scimsim
@@ -134,3 +135,34 @@ def test_list_users_with_pagination(client):
     assert response.status_code == 200
     assert len(response.json['Resources']) == 2
     assert "urn:ietf:params:scim:api:messages:2.0:ListResponse" in response.json["schemas"]
+
+
+def test_update_user_returns_ok(client):
+    """
+        Check that PUT /Users/id responds with 200 OK when successfully updating the user
+    """
+    d = {'userName': 'mvandend'}
+    response = client.post('/scim/v2/users', data=json.dumps(d), content_type='application/json')
+
+    d = response.json
+    d['active'] = False
+
+    response = client.put('/scim/v2/users/' + str(d['id']), data=json.dumps(d), content_type='application/json')
+
+    assert response.status_code == 200
+    assert "urn:ietf:params:scim:schemas:core:2.0:User" in response.json["schemas"]
+    assert response.json["userName"] == d['userName']
+    assert response.json["active"] == False
+    assert parse(response.json['meta']['created']) < parse(response.json['meta']['modified'])
+
+
+def test_update_user_returns_not_found_when_user_does_not_exist(client):
+    """
+    """
+    d = {'userName': 'mvandend'}
+
+    response = client.put('/scim/v2/users/1', data=json.dumps(d), content_type='application/json')
+
+    assert response.status_code == 404
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "user does not exist"
