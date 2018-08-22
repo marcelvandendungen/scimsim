@@ -221,3 +221,25 @@ def test_delete_group_returns_no_content_when_group_deleted_successfully(client)
     assert response.status_code == 204
 
 
+def test_get_group_returns_not_found_when_group_does_not_exist(client):
+    """
+    """
+    response = client.get('/scim/v2/groups/1', content_type='application/json')
+
+    assert response.status_code == 404
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "group not found"
+
+
+def test_get_group_returns_ok_when_group_exists(client):
+    """
+    """
+    d = {'displayName': 'groupname'}
+    client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = client.get('/scim/v2/groups/0', content_type='application/json')
+
+    assert response.status_code == 200
+    assert "urn:ietf:params:scim:schemas:core:2.0:Group" in response.json["schemas"]
+    assert response.json["displayName"] == d['displayName']
+
+
