@@ -174,6 +174,41 @@ def get_group(group_id):
     return make_scim_response(group[0], 200)
 
 
+@app.route('/scim/v2/groups', methods=['GET'])
+def get_groups():
+
+    startIndex = int(request.args.get('startIndex', 1)) - 1 # make zero based
+    count = int(request.args.get('count', 10))
+    filter = request.args.get('filter')
+
+    filtered = get_filtered_groups(filter)
+    sliced = filtered[startIndex : startIndex + min(len(filtered), count)]
+    mapped = list(map(lambda g: {'id': g['id'], 'displayName': g['displayName']}, sliced))
+
+    response = {
+        'schemas': ['urn:ietf:params:scim:api:messages:2.0:ListResponse'],
+        'totalResults': len(mapped),
+        'Resources': mapped,
+        'startIndex': startIndex,
+        'itemsPerPage': count
+    }
+    return make_scim_response(response, 200)
+
+
+@app.route('/scim/v2/groups/<int:group_id>', methods=['PUT'])
+def update_group(group_id):
+    group = [group for group in groups if group['id'] == group_id]
+
+    if len(group) == 0:
+        scim_abort(404, 'group not found')
+    if not request.json or not 'displayName' in request.json:
+        scim_abort(400, 'displayName is missing')
+
+    group[0]['displayName'] = request.json.get('displayName', group[0]['displayName'])
+
+    return make_scim_response(group[0], 200)
+
+
 def make_scim_response(data, code):
     resp = make_response(jsonify(data))
     resp.headers['Content-Type'] = 'application/scim+json'
@@ -211,6 +246,22 @@ def get_filtered_users(filter_exp):
             return [u for u in users if u[attributeName] == attributeValue]
 
     return users
+
+
+def get_filtered_groups(filter_exp):
+
+    if filter_exp:
+        m = re.match(r"^(\w+)\s+eq\s+[\"'](\w+)[\"']$", filter_exp)
+        if m:
+            attributeName = m.groups()[0]
+            attributeValue = m.groups()[1]
+
+            if attributeName not in ['displayName', 'externalId']:
+                scim_abort(400, 'only displayName and externalId supported in filter', 'invalid_filter')
+
+            return [g for g in groups if g[attributeName] == attributeValue]
+
+    return groups
 
 
 def get_current_datetime():

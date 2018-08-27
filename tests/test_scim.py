@@ -243,3 +243,48 @@ def test_get_group_returns_ok_when_group_exists(client):
     assert response.json["displayName"] == d['displayName']
 
 
+def test_update_group_returns_not_found_when_group_does_not_exist(client):
+    """
+        Check that PUT /Groups/<id> responds with 404 Not Found when user does not exist
+    """
+    response = client.put('/scim/v2/groups/100')
+    assert response.status_code == 404
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "group not found"
+
+
+def test_update_group_returns_bad_request_when_no_payload_sent(client):
+    """
+        Check that PUT /Groups/<id> responds with 400 Bad Request when no payload sent
+    """
+    d = {'displayName': 'groupname'}
+    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = client.put('/scim/v2/groups/' + str(response.json['id']))
+    assert response.status_code == 400
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "displayName is missing"
+
+
+def test_update_group_returns_bad_request_when_displayName_not_in_payload(client):
+    """
+        Check that PUT /Groups/<id> responds with 400 Bad Request when displayName missing from payload
+    """
+    d = {'displayName': 'groupname'}
+    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    d = {'groupName': 'groupname'}
+    response = client.put('/scim/v2/groups/' + str(response.json['id']), data=json.dumps(d))
+    assert response.status_code == 400
+    assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
+    assert response.json["detail"] == "displayName is missing"
+
+
+def test_update_group_returns_ok_when_displayName_updated(client):
+    """
+        Check that PUT /Groups/<id> responds with 200 OK when displayName was updated
+    """
+    d = {'displayName': 'groupname1'}
+    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    d = {'displayName': 'groupname2'}
+    response = client.put('/scim/v2/groups/' + str(response.json['id']), data=json.dumps(d), content_type='application/json')
+    assert response.status_code == 200
+    assert response.json['displayName'] == "groupname2"
