@@ -288,3 +288,63 @@ def test_update_group_returns_ok_when_displayName_updated(client):
     response = client.put('/scim/v2/groups/' + str(response.json['id']), data=json.dumps(d), content_type='application/json')
     assert response.status_code == 200
     assert response.json['displayName'] == "groupname2"
+
+
+def test_add_user_with_invalid_patch_returns_bad_request(client):
+    """
+        Check that PATCH /Groups/<id> responds with 400 Bad Request when JSON invalid
+    """
+    d = {'displayName': 'groupname1'}
+    response = client.patch('/scim/v2/groups/100', data=json.dumps(d), content_type='application/json')
+    assert response.status_code == 400
+    assert response.json['detail'] == 'Invalid syntax'
+    assert response.json['scimType'] == 'invalidSyntax'
+
+
+def test_add_user_to_non_existing_group_returns_not_found(client):
+    """
+        Check that PATCH /Groups/<id> responds with 404 Not Found when group does not exist
+    """
+    d = {
+	'schemas': ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+    'Operations': [
+        {
+            'op': 'add',
+            'path': 'members',
+            'value': [
+                {
+                    'display': 'username',
+                    'value': '0'
+                }
+            ]
+        }]
+    }
+
+    response = client.patch('/scim/v2/groups/100', data=json.dumps(d), content_type='application/json')
+    assert response.status_code == 404
+    assert response.json["detail"] == "group not found"
+
+
+def test_add_user_returns_no_content_on_success(client):
+    """
+        Check that PATCH /Groups/<id> responds with 204 No Content when user added to group
+    """
+    d = {'displayName': 'groupname1'}
+    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    d = {
+	'schemas': ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+    'Operations': [
+        {
+            'op': 'add',
+            'path': 'members',
+            'value': [
+                {
+                    'display': 'username',
+                    'value': '0'
+                }
+            ]
+        }]
+    }
+
+    response = client.patch('/scim/v2/groups/' + str(response.json['id']), data=json.dumps(d), content_type='application/json')
+    assert response.status_code == 204

@@ -209,6 +209,33 @@ def update_group(group_id):
     return make_scim_response(group[0], 200)
 
 
+@app.route('/scim/v2/groups/<int:group_id>', methods=['PATCH'])
+def change_group(group_id):
+
+    try:
+        json = request.json
+        operations = json['Operations']
+
+        for operation in operations:
+            if operation['op'] == 'add' and operation['path'] == 'members':
+                [add_user(val, group_id) for val in operation['value']]
+
+        return make_scim_response(None, 204)
+    except KeyError:
+        return scim_abort(400, 'Invalid syntax', 'invalidSyntax')
+
+
+def add_user(value, group_id):
+    print('adding user ' + value['value'] + ' to group ' + str(group_id))
+
+    group = [group for group in groups if group['id'] == group_id]
+    if len(group) == 0:
+        scim_abort(404, 'group not found')
+
+    user = {'id':value['value'], '$ref': '/scim/v2/users/' + value['value']}
+    group[0]['members'].append(user)
+
+
 def make_scim_response(data, code):
     resp = make_response(jsonify(data))
     resp.headers['Content-Type'] = 'application/scim+json'
@@ -228,7 +255,7 @@ def create_error_payload(status, detail, scim_type=None):
     }
     if scim_type:
         data['scimType'] = scim_type
-
+    
     return data
 
 
