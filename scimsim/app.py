@@ -68,10 +68,7 @@ def create_user():
 @app.route('/scim/v2/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
 
-    user = [user for user in users if user['id'] == user_id]
-    if len(user) == 0:
-        scim_abort(404, 'user does not exist')
-
+    user = find_user(user_id)
     users.remove(user[0])
 
     return make_scim_response({}, 204)
@@ -80,9 +77,7 @@ def delete_user(user_id):
 @app.route('/scim/v2/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
 
-    user = [user for user in users if user['id'] == user_id]
-    if len(user) == 0:
-        scim_abort(404, 'user does not exist')
+    user = find_user(user_id)
 
     return make_scim_response(user[0], 200)
 
@@ -111,10 +106,8 @@ def list_users():
 
 @app.route('/scim/v2/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
-    user = [user for user in users if user['id'] == user_id]
+    user = find_user(user_id)
 
-    if len(user) == 0:
-        scim_abort(404, 'user does not exist')
     if not request.json or not 'userName' in request.json:
         scim_abort(400, 'userName is missing')
 
@@ -155,10 +148,7 @@ def create_group():
 @app.route('/scim/v2/groups/<int:group_id>', methods=['DELETE'])
 def delete_group(group_id):
 
-    group = [group for group in groups if group['id'] == group_id]
-    if len(group) == 0:
-        scim_abort(404, 'group not found')
-
+    group = find_group(group_id)
     groups.remove(group[0])
 
     return make_scim_response({}, 204)
@@ -167,9 +157,7 @@ def delete_group(group_id):
 @app.route('/scim/v2/groups/<int:group_id>', methods=['GET'])
 def get_group(group_id):
 
-    group = [group for group in groups if group['id'] == group_id]
-    if len(group) == 0:
-        scim_abort(404, "group not found")
+    group = find_group(group_id)
 
     return make_scim_response(group[0], 200)
 
@@ -197,10 +185,7 @@ def get_groups():
 
 @app.route('/scim/v2/groups/<int:group_id>', methods=['PUT'])
 def update_group(group_id):
-    group = [group for group in groups if group['id'] == group_id]
-
-    if len(group) == 0:
-        scim_abort(404, 'group not found')
+    group = find_group(group_id)
     if not request.json or not 'displayName' in request.json:
         scim_abort(400, 'displayName is missing')
 
@@ -216,24 +201,67 @@ def change_group(group_id):
         json = request.json
         operations = json['Operations']
 
-        for operation in operations:
-            if operation['op'] == 'add' and operation['path'] == 'members':
-                [add_user(val, group_id) for val in operation['value']]
-
+        [patch(op, group_id) for op in operations]
         return make_scim_response(None, 204)
+
+    except ValueError as ex:
+        print(ex.args)
+        scim_abort(400, 'unable to change membership', scim_type='invalidSyntax')
     except KeyError:
         return scim_abort(400, 'Invalid syntax', 'invalidSyntax')
+
+
+def find_user(user_id):
+    user = [user for user in users if user['id'] == user_id]
+    if len(user) == 0:
+        scim_abort(404, 'user does not exist')
+    return user
+
+
+def find_group(group_id):
+    group = [group for group in groups if group['id'] == group_id]
+    if len(group) == 0:
+        scim_abort(404, 'group not found')
+    return group
+
+def patch(operation, group_id):
+
+    if operation['op'] == 'add' and operation['path'] == 'members':
+        [add_user(val, group_id) for val in operation['value']]
+    elif operation['op'] == 'remove' and operation['path'].startswith('members'):
+        # looks like: "path": 'members[value eq \"id\"]'
+        name, val = get_member_to_remove(operation['path'])
+        if name == 'value':
+            remove_user(val, group_id)
+
+    return operation
 
 
 def add_user(value, group_id):
     print('adding user ' + value['value'] + ' to group ' + str(group_id))
 
-    group = [group for group in groups if group['id'] == group_id]
-    if len(group) == 0:
-        scim_abort(404, 'group not found')
+    group = find_group(group_id)
 
     user = {'id':value['value'], '$ref': '/scim/v2/users/' + value['value']}
     group[0]['members'].append(user)
+
+
+def remove_user(value, group_id):
+    print('removing user ' + value + ' from group ' + str(group_id))
+    group = find_group(group_id)
+    group[0]['members'] = [m for m in group[0]['members'] if m['id'] != str(group_id)]
+
+
+def get_member_to_remove(exp):
+
+    if exp:
+        m = re.match(r"^members\[(\w+)\s+eq\s+[\"'](\w+)[\"']\]$", exp)
+        if m:
+            attribute_name = m.groups()[0]
+            attribute_value = m.groups()[1]
+            return attribute_name, attribute_value
+
+    raise ValueError('Invalid expression')
 
 
 def make_scim_response(data, code):

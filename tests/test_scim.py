@@ -172,11 +172,10 @@ def test_create_group_returns_created(client):
     """
         Check that POST /Groups responds with 201 Created when successfully creating the user
     """
-    d = {'displayName': 'groupname'}
-    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = create_scim_group('groupname', client)
     assert response.status_code == 201
     assert "urn:ietf:params:scim:schemas:core:2.0:Group" in response.json["schemas"]
-    assert response.json["displayName"] == d['displayName']
+    assert response.json["displayName"] == 'groupname'
 
 
 def test_create_group_returns_bad_request_when_data_missing(client):
@@ -193,9 +192,10 @@ def test_create_group_returns_conflict_when_group_already_exists(client):
     """
         Check that POST /Groups responds with 409 Conflict when group to be created already exists
     """
-    d = {'displayName': 'groupname'}
-    client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
-    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+
+    create_scim_group('groupname', client)
+    response = create_scim_group('groupname', client)
+
     assert response.status_code == 409
     assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
     assert response.json["detail"] == "group already exists"
@@ -215,8 +215,7 @@ def test_delete_group_returns_no_content_when_group_deleted_successfully(client)
     """
         Check that DELETE /Groups/<id> responds with 204 No Content when group was deleted
     """
-    d = {'displayName': 'groupname'}
-    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = create_scim_group('groupname', client)
     response = client.delete('/scim/v2/groups/' + str(response.json['id']))
     assert response.status_code == 204
 
@@ -234,13 +233,12 @@ def test_get_group_returns_not_found_when_group_does_not_exist(client):
 def test_get_group_returns_ok_when_group_exists(client):
     """
     """
-    d = {'displayName': 'groupname'}
-    client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
-    response = client.get('/scim/v2/groups/0', content_type='application/json')
+    response = create_scim_group('groupname', client)
+    response = client.get('/scim/v2/groups/' + str(response.json['id']), content_type='application/json')
 
     assert response.status_code == 200
     assert "urn:ietf:params:scim:schemas:core:2.0:Group" in response.json["schemas"]
-    assert response.json["displayName"] == d['displayName']
+    assert response.json["displayName"] == 'groupname'
 
 
 def test_update_group_returns_not_found_when_group_does_not_exist(client):
@@ -257,8 +255,7 @@ def test_update_group_returns_bad_request_when_no_payload_sent(client):
     """
         Check that PUT /Groups/<id> responds with 400 Bad Request when no payload sent
     """
-    d = {'displayName': 'groupname'}
-    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = create_scim_group('groupname', client)
     response = client.put('/scim/v2/groups/' + str(response.json['id']))
     assert response.status_code == 400
     assert "urn:ietf:params:scim:api:messages:2.0:Error" in response.json["schemas"]
@@ -269,8 +266,7 @@ def test_update_group_returns_bad_request_when_displayName_not_in_payload(client
     """
         Check that PUT /Groups/<id> responds with 400 Bad Request when displayName missing from payload
     """
-    d = {'displayName': 'groupname'}
-    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = create_scim_group('groupname', client)
     d = {'groupName': 'groupname'}
     response = client.put('/scim/v2/groups/' + str(response.json['id']), data=json.dumps(d))
     assert response.status_code == 400
@@ -282,8 +278,7 @@ def test_update_group_returns_ok_when_displayName_updated(client):
     """
         Check that PUT /Groups/<id> responds with 200 OK when displayName was updated
     """
-    d = {'displayName': 'groupname1'}
-    response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    response = create_scim_group('groupname', client)
     d = {'displayName': 'groupname2'}
     response = client.put('/scim/v2/groups/' + str(response.json['id']), data=json.dumps(d), content_type='application/json')
     assert response.status_code == 200
@@ -329,22 +324,66 @@ def test_add_user_returns_no_content_on_success(client):
     """
         Check that PATCH /Groups/<id> responds with 204 No Content when user added to group
     """
-    d = {'displayName': 'groupname1'}
+    response = create_scim_group('groupname', client)
+    response = add_user_to_group({
+                    'display': 'username',
+                    'value': '0'
+                }, 
+                str(response.json['id']),
+                client)
+    assert response.status_code == 204
+
+
+#@pytest.mark.skip(reason="disable for now")
+def test_remove_user_returns_no_content_on_success(client):
+    """
+        Check that PATCH /Groups/<id> responds with 204 No Content when user removed from group
+    """
+    response = create_scim_group('groupname', client)
+    add_user_to_group({
+            'display': 'username',
+            'value': '0'
+        }, str(response.json['id']), client)
+
+    response = client.get('/scim/v2/groups/0')
+    # response = client.get('/scim/v2/groups')
+    import pprint
+    pprint.pprint('response: ')
+    pprint.pprint(response.json)
+
+    response = remove_user_from_group(str(response.json['id']), client)
+    assert response.status_code == 204
+
+
+def create_scim_group(groupname, client):
+    d = {'displayName': groupname}
     response = client.post('/scim/v2/groups', data=json.dumps(d), content_type='application/json')
+    return response
+
+
+def add_user_to_group(user, id, client):
     d = {
 	'schemas': ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
     'Operations': [
         {
             'op': 'add',
             'path': 'members',
-            'value': [
-                {
-                    'display': 'username',
-                    'value': '0'
-                }
-            ]
+            'value': [user]
         }]
     }
 
-    response = client.patch('/scim/v2/groups/' + str(response.json['id']), data=json.dumps(d), content_type='application/json')
-    assert response.status_code == 204
+    response = client.patch('/scim/v2/groups/' + id, data=json.dumps(d), content_type='application/json')
+    return response
+
+
+def remove_user_from_group(id, client):
+    d = {
+	'schemas': ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+    'Operations': [
+        {
+            'op': 'remove',
+            'path': 'members[value eq "0"]'
+        }]
+    }
+    response = client.patch('/scim/v2/groups/' + id, data=json.dumps(d), content_type='application/json')
+    return response
